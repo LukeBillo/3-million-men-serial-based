@@ -20,7 +20,7 @@ public:
 
 private:
 	std::shared_ptr<name_map> _names_by_key;
-	std::unique_ptr<result_list> _results;
+	std::shared_ptr<result_list> _results;
 
 	struct pass_result
 	{
@@ -30,12 +30,22 @@ private:
 		pass_result(std::shared_ptr<name_vector>& matches, std::shared_ptr<name_vector>& non_matches) : matches(matches), non_matches(non_matches) {}
 	};
 
-	pass_result& match_pairs_recursive(name_vector::iterator name_by_key_it,
+	pass_result match_pairs_recursive(
+		name_vector::iterator name_by_key_it,
 		name_vector::iterator name_by_value_it,
 		std::shared_ptr<name_vector>& names_by_key,
 		std::shared_ptr<name_vector>& names_by_value,
 		std::shared_ptr<name_vector>& matches,
 		std::shared_ptr<name_vector>& non_matches);
+
+	void run_hardy_algorithm_inductive(
+		std::shared_ptr<name_vector> matches,
+		std::shared_ptr<result_list> results);
+
+	void run_hardy_algorithm_inductive_recursive(
+		std::shared_ptr<name_vector> matches,
+		std::shared_ptr<result_list> outputs,
+		std::shared_ptr<name_vector> matches_copy);
 
 	bool is_last(std::pair<std::string, std::string> unmatched_pair) const;
 };
