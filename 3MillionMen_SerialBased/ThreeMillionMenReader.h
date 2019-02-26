@@ -3,17 +3,20 @@
 #include <list>
 #include <fstream>
 #include <map>
+#include "ThreeMillionMenSerial.h"
 
 class three_million_men_reader
 {
 public:
+	using name_map = three_million_men_serial::name_map;
+
 	three_million_men_reader(const std::string& file_name);
 	~three_million_men_reader() = default;
-	
+
 	void read_all_lines();
-	std::shared_ptr<std::map<std::string, std::string>> get_lines();
+	std::unique_ptr<name_map> get_lines();
 private:
-	std::shared_ptr<std::map<std::string, std::string>> _name_pair_map;
+	std::unique_ptr<name_map> _name_pair_map;
 	std::ifstream input_file;
 };
 

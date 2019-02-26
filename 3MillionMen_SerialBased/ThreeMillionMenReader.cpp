@@ -13,7 +13,7 @@ three_million_men_reader::three_million_men_reader(const std::string& file_name)
 
 void three_million_men_reader::read_all_lines()
 {
-	_name_pair_map = std::make_unique<std::map<std::string, std::string>>();
+	_name_pair_map = std::make_unique<name_map>();
 	std::string line;
 
 	while(std::getline(input_file, line))
@@ -29,7 +29,7 @@ void three_million_men_reader::read_all_lines()
 	}
 }
 
-std::shared_ptr<std::map<std::string, std::string>> three_million_men_reader::get_lines()
+std::unique_ptr<three_million_men_reader::name_map> three_million_men_reader::get_lines()
 {
 	return std::move(_name_pair_map);
 }

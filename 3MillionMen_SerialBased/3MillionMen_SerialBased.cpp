@@ -20,5 +20,16 @@ int main(int argc, const char* argv[])
 	algorithm->run();
 	const auto results = algorithm->get_results();
 
+	const std::string output_file = argc > 2 ? argv[2] : "results.txt";
+	std::ofstream output_file_stream(output_file);
+
+	for (const auto& result : *results)
+	{
+		output_file_stream << result << std::endl;
+	}
+
+	delete results;
+	delete algorithm;
+
 	return 0;
 }

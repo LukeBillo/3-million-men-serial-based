@@ -1,59 +1,78 @@
 #include "ThreeMillionMenSerial.h"
 #include <algorithm>
 
-three_million_men_serial::three_million_men_serial(std::shared_ptr<name_map>& names)
+three_million_men_serial::three_million_men_serial(std::unique_ptr<name_map>& names)
 {
-	_names_by_key = names;
-	_results = std::make_shared<result_list>();
+	_names_by_key = std::move(names);
+	_results = std::make_unique<output_list>();
 }
 
 void three_million_men_serial::run()
 {
-	auto names_by_key_copy = std::make_shared<name_vector>();
+	auto names_by_key_vector = std::make_unique<name_vector>();
 
-	for (auto i = _names_by_key->begin(); i != _names_by_key->end(); ++i)
+	for (auto& i : *_names_by_key)
 	{
-		names_by_key_copy->push_back({ i->first, i->second });
+		names_by_key_vector->push_back({i.first, i.second });
 	}
 
-	auto names_by_value = std::make_shared<name_vector>(*names_by_key_copy.get());
-	std::sort(names_by_value->begin(), names_by_value->end(), [](const std::pair<std::string, std::string> &x, const std::pair<std::string, std::string> &y)
+	auto names_by_value = std::make_unique<name_vector>(*names_by_key_vector);
+	std::sort(names_by_value->begin(), names_by_value->end(), [](const name_pair& pair1, const name_pair& pair2)
 	{
-		return x.second < y.second;
+		return pair1.second < pair2.second;
 	});
 
-	auto matched_pairs = std::make_shared<name_vector>();
-	auto unmatched_pairs = std::make_shared<name_vector>();
+	auto matched_pairs = std::make_unique<name_vector>();
+	auto unmatched_pairs = std::make_unique<name_vector>();
 
-	const auto name_by_key_it = names_by_key_copy->begin();
+	const auto name_by_key_it = names_by_key_vector->begin();
 	const auto name_by_value_it = names_by_value->begin();
 
-	auto result = match_pairs_recursive(name_by_key_it, name_by_value_it, names_by_key_copy, names_by_value, matched_pairs, unmatched_pairs);
+	auto result = match_pairs(
+		name_by_key_it, 
+		name_by_value_it,
+		std::move(names_by_key_vector),
+		std::move(names_by_value),
+		std::move(matched_pairs),
+		std::move(unmatched_pairs));
 
-	auto last_name = is_last(result.non_matches->front()) ? result.non_matches->front() : result.non_matches->back();
-	int size = _names_by_key->size();
+	auto last_name = is_last(result->non_matches->front()) ? result->non_matches->front() : result->non_matches->back();
+	auto size = _names_by_key->size();
 
-	_results->push_back({ size, last_name.second });
-	_results->push_back({ size - 1, last_name.first });
+	auto results = std::make_unique<output_list>();
+	results->push_back({ size, last_name.second });
+	results->push_back({ size - 1, last_name.first });
 
-	run_hardy_algorithm_inductive(result.matches, _results);
+	run_hardy_algorithm_inductive(std::move(result->matches), std::move(results));
 }
 
-three_million_men_serial::pass_result three_million_men_serial::match_pairs_recursive(
+bool three_million_men_serial::is_last(const std::pair<std::string, std::string> unmatched_pair) const
+{
+	for (auto& i : *_names_by_key)
+	{
+		if (unmatched_pair.second == i.first)
+		{
+			return false;
+		}
+	}
+
+	return true;
+}
+
+std::unique_ptr<three_million_men_serial::initial_result> three_million_men_serial::match_pairs(
 	name_vector::iterator name_by_key_it,
 	name_vector::iterator name_by_value_it,
-	std::shared_ptr<name_vector>& names_by_key,
-	std::shared_ptr<name_vector>& names_by_value,
-	std::shared_ptr<name_vector>& matches,
-	std::shared_ptr<name_vector>& non_matches)
+	std::unique_ptr<name_vector> names_by_key,
+	std::unique_ptr<name_vector> names_by_value,
+	std::unique_ptr<name_vector> matches,
+	std::unique_ptr<name_vector> non_matches) const
 {
 	if (name_by_key_it == names_by_key->end())
 	{
 		const auto last_unmatched_name_it = names_by_value->begin();
 		non_matches->push_back({ last_unmatched_name_it->first, last_unmatched_name_it->second });
 
-		const auto result = pass_result(matches, non_matches);
-		return result;
+		return std::make_unique<initial_result>(matches, non_matches);
 	}
 
 	if (name_by_value_it == names_by_value->end())
@@ -62,8 +81,14 @@ three_million_men_serial::pass_result three_million_men_serial::match_pairs_recu
 		const auto next_name_by_key = names_by_key->erase(name_by_key_it);
 		const auto reset_name_by_value_it = names_by_value->begin();
 
-		return match_pairs_recursive(next_name_by_key, reset_name_by_value_it, names_by_key, names_by_value, matches, non_matches);
-;	}
+		return match_pairs(
+			next_name_by_key,
+			reset_name_by_value_it, 
+			std::move(names_by_key), 
+			std::move(names_by_value),
+			std::move(matches),
+			std::move(non_matches));
+	}
 
 	if (name_by_key_it->second == name_by_value_it->first)
 	{
@@ -74,78 +99,156 @@ three_million_men_serial::pass_result three_million_men_serial::match_pairs_recu
 		names_by_value->erase(name_by_value_it);
 		const auto reset_name_by_value_it = names_by_value->begin();
 
-		return match_pairs_recursive(next_name_by_key, reset_name_by_value_it, names_by_key, names_by_value, matches, non_matches);
-;	}
-
-	const auto next_name_by_value = ++name_by_value_it;
-	return match_pairs_recursive(name_by_key_it, next_name_by_value, names_by_key, names_by_value, matches, non_matches);
-}
-
-bool three_million_men_serial::is_last(const std::pair<std::string, std::string> unmatched_pair) const
-{
-	for (auto i = _names_by_key->begin(); i != _names_by_key->end(); ++i)
-	{
-		if (unmatched_pair.second == i->first)
-		{
-			return false;
-		}
+		return match_pairs(
+			next_name_by_key,
+			reset_name_by_value_it,
+			std::move(names_by_key),
+			std::move(names_by_value),
+			std::move(matches),
+			std::move(non_matches));
 	}
 
-	return true;
+	const auto next_name_by_value = ++name_by_value_it;
+
+	return match_pairs(
+		name_by_key_it,
+		next_name_by_value,
+		std::move(names_by_key),
+		std::move(names_by_value),
+		std::move(matches),
+		std::move(non_matches));
 }
 
 void three_million_men_serial::run_hardy_algorithm_inductive(
-	std::shared_ptr<name_vector> matches,
-	std::shared_ptr<result_list> results)
+	std::unique_ptr<name_vector> matches,
+	std::unique_ptr<output_list> results)
 {
-	const auto matches_copy = std::make_shared<name_vector>(*matches.get());
-	run_hardy_algorithm_inductive_recursive(matches, results, matches_copy);
+	results->sort([](ordered_name name1, ordered_name name2)
+	{
+		return name1.second < name2.second;
+	});
+
+	auto matches_by_value = std::make_unique<name_vector>(*matches);
+	std::sort(matches_by_value->begin(), matches_by_value->end(), [](const name_pair& pair1, const name_pair& pair2)
+	{
+		return pair1.second < pair2.second;
+	});
+
+	auto new_matches = std::make_unique<name_vector>();
+	auto new_outputs = std::make_unique<output_list>();
+
+	auto outputs = run_hardy_algorithm_inductive_recursive(
+		std::move(matches_by_value),
+		std::move(results),
+		std::move(matches),
+		std::move(new_matches),
+		std::move(new_outputs),
+		2);
+
+	outputs->sort([](const ordered_name& name1, const ordered_name& name2)
+	{
+		return name1.first < name2.first;
+	});
+
+	_results = std::move(outputs);
 }
 
-void three_million_men_serial::run_hardy_algorithm_inductive_recursive(
-	std::shared_ptr<name_vector> matches,
-	std::shared_ptr<result_list> results,
-	std::shared_ptr<name_vector> matches_copy,
-	)
+auto three_million_men_serial::run_hardy_algorithm_inductive_recursive(
+	std::unique_ptr<name_vector> matches_by_value,
+	std::unique_ptr<output_list> outputs,
+	std::unique_ptr<name_vector> matches_by_key,
+	std::unique_ptr<name_vector> new_matches,
+	std::unique_ptr<output_list> new_outputs,
+	const size_t offset) const -> std::unique_ptr<output_list>
 {
-	// matches
-	auto matches_it = matches->begin();
+	if (offset > _names_by_key->size() + 1)
+	{
+		return outputs;
+	}
 
-	// non_matches
-	auto non_matches_it = non_matches->begin();
+	// F
+	auto matches_by_value_it = matches_by_value->begin();
+
+	// G
+	auto outputs_it = outputs->begin();
 
 	// H
-	auto matches_copy_it = matches_copy->begin();
+	auto matches_by_key_it = matches_by_key->begin();
 
-	while (matches_it != matches->end())
+	while (matches_by_value_it != matches_by_value->end())
 	{
-		if (matches_it->second == matches_copy_it->first)
+		if (matches_by_value_it->second == matches_by_key_it->first)
 		{
-			results->matches->push_back({ matches_it->first, matches_copy_it->second });
-			++matches_it;
-			++matches_copy_it;
+			new_matches->push_back({ matches_by_value_it->first, matches_by_key_it->second });
+			++matches_by_value_it;
+			++matches_by_key_it;
+
+			continue;
 		}
 
-		if (matches_it->second == non_matches_it->second)
+		if (outputs_it != outputs->end() && matches_by_value_it->second == outputs_it->second)
 		{
-			_results
-			// matches++, non_matches++
-			// (y - t, x)
+			new_outputs->push_back({ outputs_it->first - offset, matches_by_value_it->first });
+			++matches_by_value_it;
+			++outputs_it;
+
+			continue;
 		}
 
-		if (matches_it->second > non_matches_it->second)
+		if (outputs_it != outputs->end() && matches_by_value_it->second > outputs_it->second)
 		{
-			// non_matches++
+			++outputs_it;
+			continue;
 		}
 
-		if (matches_it->second > matches_copy_it->first)
+		if (matches_by_value_it->second > matches_by_key_it->first)
 		{
-			// H++
+			++matches_by_key_it;
 		}
 	}
+
+	new_outputs->sort([](const ordered_name& name1, const ordered_name& name2)
+	{
+		return name1.second < name2.second;
+	});
+
+	outputs->merge(*new_outputs, [](const ordered_name& name1, const ordered_name& name2)
+	{
+		return name1.second < name2.second;
+
+	});
+
+	auto new_matches_by_key = std::make_unique<name_vector>(*new_matches);
+	std::sort(new_matches_by_key->begin(), new_matches_by_key->end(), [](name_pair& pair1, name_pair& pair2)
+	{
+		return pair1.first < pair2.first;
+	});
+
+	std::sort(new_matches->begin(), new_matches->end(), [](name_pair& pair1, name_pair& pair2)
+	{
+		return pair1.second < pair2.second;
+	});
+
+	auto matches_for_next_pass = std::make_unique<name_vector>();
+	auto outputs_for_next_pass = std::make_unique<output_list>();
+
+	return run_hardy_algorithm_inductive_recursive(
+		std::move(new_matches),
+		std::move(outputs),
+		std::move(new_matches_by_key),
+		std::move(matches_for_next_pass),
+		std::move(outputs_for_next_pass),
+		offset * 2);
 }
 
-std::list<std::string>* three_million_men_serial::get_results()
+three_million_men_serial::name_list* three_million_men_serial::get_results() const
 {
-	return new std::list<std::string>();
+	auto results = new name_list();
+
+	for (auto& i : *_results)
+	{
+		results->push_back(i.second);
+	}
+
+	return results;
 }
