@@ -21,39 +21,39 @@ public:
 	name_list* get_results() const;
 
 private:
-	std::unique_ptr<name_map> _names_by_key;
-	std::unique_ptr<output_list> _results;
+	name_map* _names_by_key;
+	output_list* _outputs;
 
-	struct initial_result
+	struct initial_pass_output
 	{
-		std::unique_ptr<name_vector> matches;
-		std::unique_ptr<name_vector> non_matches;
+		name_vector matches;
+		name_vector non_matches;
 
-		initial_result(std::unique_ptr<name_vector>& matches, std::unique_ptr<name_vector>& non_matches)
+		initial_pass_output(name_vector& matches, name_vector& non_matches)
 		{
-			this->matches = std::move(matches);
-			this->non_matches = std::move(non_matches);
+			this->matches = matches;
+			this->non_matches = non_matches;
 		}
 	};
 
-	std::unique_ptr<initial_result> match_pairs(
+	static initial_pass_output* initial_pass_recursive(
 		name_vector::iterator name_by_key_it,
 		name_vector::iterator name_by_value_it,
-		std::unique_ptr<name_vector> names_by_key,
-		std::unique_ptr<name_vector> names_by_value,
-		std::unique_ptr<name_vector> matches,
-		std::unique_ptr<name_vector> non_matches) const;
+		name_vector* names_by_key,
+		name_vector* names_by_value,
+		name_vector* matches,
+		name_vector* non_matches);
 
 	void run_hardy_algorithm_inductive(
-		std::unique_ptr<name_vector> matches,
-		std::unique_ptr<output_list> results);
+		name_vector matches,
+		output_list* outputs);
 
-	std::unique_ptr<output_list> run_hardy_algorithm_inductive_recursive(
-		std::unique_ptr<name_vector> matches_by_value,
-		std::unique_ptr<output_list> outputs,
-		std::unique_ptr<name_vector> matches_by_key,
-		std::unique_ptr<name_vector> new_matches,
-		std::unique_ptr<output_list> new_outputs,
+	output_list* run_hardy_algorithm_inductive_recursive(
+		name_vector* matches_by_value,
+		output_list* outputs,
+		name_vector* matches_by_key,
+		name_vector* new_matches,
+		output_list* new_outputs,
 		size_t offset) const;
 
 	bool is_last(std::pair<std::string, std::string> unmatched_pair) const;
